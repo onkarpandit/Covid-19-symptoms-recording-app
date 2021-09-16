@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">MobileComputingHW1</string>
+    <string-array name="symptoms">
+        <item>Nausea</item>
+        <item>Headache</item>
+        <item>Diarrhoea</item>
+        <item>Soar Throat</item>
+        <item>Fever</item>
+        <item>Muscle Ache</item>
+        <item>Loss of smell or taste</item>
+        <item>Cough</item>
+        <item>Shortness of breath</item>
+        <item>Feeling Tired</item>
+    </string-array>
+</resources>

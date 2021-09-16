@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".RecordSymptoms">
+
+    <Spinner
+        android:id="@+id/symptom_selector"
+        android:layout_width="match_parent"
+        android:layout_marginHorizontal="20dp"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="13dp" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:layout_centerHorizontal="true"
+        android:orientation="vertical">
+        <RatingBar
+            android:id="@+id/ratingBar"
+            android:progressTint="@color/design_default_color_primary"
+            android:progressBackgroundTint="#ddd"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+        <Button
+            android:id="@+id/setRatingButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical|center_horizontal"
+            android:text="Save" />
+        <Button
+            android:id="@+id/saveRatingsButton"
+            android:layout_width="@android:dimen/thumbnail_width"
+            android:textColor="#fff"
+            android:progressTint="@color/design_default_color_primary"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@android:dimen/thumbnail_height"
+            android:layout_gravity="center"
+            android:text="Home" />
+    </LinearLayout>
+
+
+</RelativeLayout>
