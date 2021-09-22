@@ -43,8 +43,8 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
     private static final int REQUEST_ID = 1;
     private String heartRate = "0";
     private String respiratoryRate = "0";
-    private HashMap<String, String> symptomsHashMap;
-    Database myDB;
+    private HashMap<String, String> symptoms;
+    Database database;
 
     private final VideoService cameraService = new VideoService(this);
     private EntryStorage store;
@@ -53,7 +53,7 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
     private final int measurementLength = 50000;
     private final int clipLength = 3500;
 
-    private int detectedValleys = 0;
+    private int valeyDetections = 0;
     private int ticksPassed = 0;
 
     private CopyOnWriteArrayList<Long> valleys;
@@ -84,22 +84,21 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
 
         logger = (TextView) findViewById(R.id.heartRateInstruction);
 
-        //Initialize DB instance
-        myDB = new Database(this);
+        database = new Database(this);
 
-        hashMapInitializer();
+        initialiseHashMap();
 
         Intent intent = getIntent();
         String symptomsString = (String) intent.getStringExtra("EXTRA_TEXT");
         if(symptomsString != null){
             symptomsString = symptomsString.substring(1);
             symptomsString = symptomsString.substring(0, symptomsString.length() - 1);
-            Log.d(TAG, "symptoms"+ symptomsString);
+
             String[] pairs = symptomsString.split(",");
             for (int i=0;i<pairs.length;i++) {
                 String pair = pairs[i].trim();
                 String[] keyValue = pair.split("=");
-                symptomsHashMap.put(keyValue[0].trim(), keyValue[1].trim());
+                symptoms.put(keyValue[0].trim(), keyValue[1].trim());
             }
         }
 
@@ -107,14 +106,14 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
                 new String[]{Manifest.permission.CAMERA},
                 REQUEST_ID);
 
-        if(!hasCamera()){
+        if(!isCameraPermitted()){
             measureHeartRateButton.setEnabled(false);
         }
 
         measureHeartRateButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                startCameraService();
+                measureHeartRate();
 
             }
         });
@@ -133,9 +132,9 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
         upload_signs_button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                symptomsHashMap.put("Heart Rate", heartRate);
-                symptomsHashMap.put("Respiratory Rate", respiratoryRate);
-                boolean flag = myDB.insertData(symptomsHashMap);
+                symptoms.put("Heart Rate", heartRate);
+                symptoms.put("Respiratory Rate", respiratoryRate);
+                boolean flag = database.insertData(symptoms);
                 if (flag) {
                     Toast.makeText(getApplicationContext(), "Successfully inserted data", Toast.LENGTH_LONG).show();
                 }
@@ -160,7 +159,7 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
         startActivity(intent);
     }
 
-    private boolean detectValley() {
+    private boolean valeyDetection() {
         final int valleyDetectionWindowSize = 13;
         CopyOnWriteArrayList<DataPoint<Integer>> subList = store.getLastStdValues(valleyDetectionWindowSize);
         if (subList.size() < valleyDetectionWindowSize) {
@@ -185,7 +184,7 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
 
         store = new EntryStorage();
 
-        detectedValleys = 0;
+        valeyDetections = 0;
 
         timer = new CountDownTimer(measurementLength, measurementInterval) {
             @Override
@@ -213,8 +212,8 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
 
                         store.add(measurement);
 
-                        if (detectValley()) {
-                            detectedValleys = detectedValleys + 1;
+                        if (valeyDetection()) {
+                            valeyDetections += 1;
                             valleys.add(store.getLastTimestamp().getTime());
                         }
                     }
@@ -226,10 +225,10 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
             public void onFinish() {
                 CopyOnWriteArrayList<DataPoint<Float>> stdValues = store.getStdValues();
 
-                float heartbeat = (60f * (detectedValleys - 1) / (Math.max(1, (valleys.get(valleys.size() - 1) - valleys.get(0)) / 1000f)));
+                float heartbeat = (60f * (valeyDetections - 1) / (Math.max(1, (valleys.get(valleys.size() - 1) - valleys.get(0)) / 1000f)));
                 int heart_beat = Math.round(heartbeat);
                 heartRate = String.valueOf(heart_beat);
-                // clip the interval to the first till the last one - on this interval, there were detectedValleys - 1 periods
+
                 String currentValue = String.format( Locale.getDefault(),"HEART_BEAT: " + heartRate);
                 ((TextView) findViewById(R.id.heartRateInstruction)).setText(currentValue);
 
@@ -240,7 +239,7 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
         timer.start();
     }
 
-    private void startCameraService() {
+    private void measureHeartRate() {
         logger.setText("Calculating...");
 
         valleys = new CopyOnWriteArrayList<>();
@@ -257,7 +256,7 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
         }
     }
 
-    private boolean hasCamera() {
+    private boolean isCameraPermitted() {
         if (getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_CAMERA_ANY)){
             return true;
@@ -266,7 +265,7 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
         }
     }
 
-    public int calculateHeartRate(){
+    public int getHeartRate() {
         if (total_time==0)
             return 0;
         float xSum=0, ySum=0, zSum=0;
@@ -285,16 +284,16 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
             if ((accelValuesZ[i-1] <= zAvg && zAvg<= accelValuesZ[i]) || (accelValuesZ[i-1] >= zAvg && zAvg>= accelValuesZ[i]))
                 zCount++;
         }
-        int max_count = Math.max(xCount, Math.max(yCount, zCount));
+        int max = Math.max(xCount, Math.max(yCount, zCount));
 
-        return max_count*30/total_time;
+        return max*30/total_time;
     }
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        Sensor mySensor = event.sensor;
+        Sensor eventSensor = event.sensor;
 
-        if (mySensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+        if (eventSensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             if (index==0)
                 time1 = System.currentTimeMillis();
             index++;
@@ -307,12 +306,12 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
                 total_time = (int) ((time2-time1)/1000);
                 accelManage.unregisterListener(this);
 
-                int breathRate = calculateHeartRate();
+                int breathRate = getHeartRate();
 
                 respiratoryRate = String.valueOf(breathRate);
-                Toast.makeText(getApplicationContext(), "BREATH_RATE: " + respiratoryRate, Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), "Breathing rate is: " + respiratoryRate, Toast.LENGTH_LONG).show();
 
-                String currentValue = String.format( Locale.getDefault(),"RESPIRATORY_RATE: " + respiratoryRate);
+                String currentValue = String.format( Locale.getDefault(),"Respiratory rate is: " + respiratoryRate);
                 ((TextView) findViewById(R.id.respInstruction)).setText(currentValue);
 
 
@@ -325,19 +324,19 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
 
     }
 
-    private void hashMapInitializer(){
-        symptomsHashMap = new HashMap<>();
-        symptomsHashMap.put("Heart Rate","0");
-        symptomsHashMap.put("Respiratory Rate","0");
-        symptomsHashMap.put("Nausea", "0");
-        symptomsHashMap.put("Headache", "0");
-        symptomsHashMap.put("Diarrhoea", "0");
-        symptomsHashMap.put("Soar Throat", "0");
-        symptomsHashMap.put("Fever", "0");
-        symptomsHashMap.put("Muscle Ache", "0");
-        symptomsHashMap.put("Loss of smell or taste", "0");
-        symptomsHashMap.put("Cough", "0");
-        symptomsHashMap.put("Shortness of breath", "0");
-        symptomsHashMap.put("Feeling Tired", "0");
+    private void initialiseHashMap(){
+        symptoms = new HashMap<>();
+        symptoms.put("Heart Rate","0");
+        symptoms.put("Respiratory Rate","0");
+        symptoms.put("Nausea", "0");
+        symptoms.put("Headache", "0");
+        symptoms.put("Diarrhoea", "0");
+        symptoms.put("Soar Throat", "0");
+        symptoms.put("Fever", "0");
+        symptoms.put("Muscle Ache", "0");
+        symptoms.put("Loss of smell or taste", "0");
+        symptoms.put("Cough", "0");
+        symptoms.put("Shortness of breath", "0");
+        symptoms.put("Feeling Tired", "0");
     }
 }

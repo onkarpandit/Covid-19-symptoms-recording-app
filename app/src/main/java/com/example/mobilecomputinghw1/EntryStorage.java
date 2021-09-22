@@ -5,9 +5,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 class EntryStorage {
     private final CopyOnWriteArrayList<DataPoint<Integer>> measurements = new CopyOnWriteArrayList<>();
-    private int minimum = 2147483647;
-    private int maximum = -2147483648;
-    private final int rollingAverageSize = 4;
+    private int minimum = Integer.MAX_VALUE;
+    private int maximum = Integer.MIN_VALUE;
+    private final int rollingSize = 4;
 
     void add(int measurement) {
         DataPoint<Integer> measurementWithDate = new DataPoint<>(new Date(), measurement);
@@ -22,14 +22,14 @@ class EntryStorage {
 
         for (int i = 0; i < measurements.size(); i++) {
             int sum = 0;
-            for (int rollingAverageCounter = 0; rollingAverageCounter < rollingAverageSize; rollingAverageCounter++) {
+            for (int rollingAverageCounter = 0; rollingAverageCounter < rollingSize; rollingAverageCounter++) {
                 sum += measurements.get(Math.max(0, i - rollingAverageCounter)).measurement;
             }
 
             DataPoint<Float> stdValue =
                     new DataPoint<>(
                             measurements.get(i).timestamp,
-                            ((float)sum / rollingAverageSize - minimum ) / (maximum - minimum));
+                            ((float)sum / rollingSize - minimum ) / (maximum - minimum));
             stdValues.add(stdValue);
         }
 

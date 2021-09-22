@@ -16,8 +16,8 @@ import java.util.HashMap;
 
 public class RecordSymptoms extends AppCompatActivity implements AdapterView.OnItemSelectedListener, View.OnClickListener {
     RatingBar ratingBar;
-    String selectedItem = "Nausea";
-    HashMap<String, String> symptomsMap= new HashMap<>();
+    String currentItem = "Nausea";
+    HashMap<String, String> symptoms = new HashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,16 +34,16 @@ public class RecordSymptoms extends AppCompatActivity implements AdapterView.OnI
 
 
         ratingBar = findViewById(R.id.ratingBar);
-        symptomsMap.put("Cough", "0");
-        symptomsMap.put("Diarrhoea", "0");
-        symptomsMap.put("Fever", "0");
-        symptomsMap.put("Feeling Tired", "0");
-        symptomsMap.put("Headache", "0");
-        symptomsMap.put("Loss of smell or taste","0");
-        symptomsMap.put("Muscle Ache", "0");
-        symptomsMap.put("Nausea", "0");
-        symptomsMap.put("Shortness of breath","0");
-        symptomsMap.put("Soar Throat", "0");
+        symptoms.put("Cough", "0");
+        symptoms.put("Diarrhoea", "0");
+        symptoms.put("Fever", "0");
+        symptoms.put("Feeling Tired", "0");
+        symptoms.put("Headache", "0");
+        symptoms.put("Loss of smell or taste","0");
+        symptoms.put("Muscle Ache", "0");
+        symptoms.put("Nausea", "0");
+        symptoms.put("Shortness of breath","0");
+        symptoms.put("Soar Throat", "0");
 
 
         Button setRatingButton = findViewById(R.id.setRatingButton);
@@ -54,8 +54,8 @@ public class RecordSymptoms extends AppCompatActivity implements AdapterView.OnI
 
     @Override
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-        selectedItem = parent.getSelectedItem().toString();
-        ratingBar.setRating(Float.parseFloat(symptomsMap.get(selectedItem)));
+        currentItem = parent.getSelectedItem().toString();
+        ratingBar.setRating(Float.parseFloat(symptoms.get(currentItem)));
 
     }
 
@@ -67,13 +67,14 @@ public class RecordSymptoms extends AppCompatActivity implements AdapterView.OnI
     @Override
     public void onClick(View v) {
         if (v.getId() == R.id.setRatingButton){
-            symptomsMap.put(selectedItem, Float.toString(ratingBar.getRating()));
+            symptoms.put(currentItem, Float.toString(ratingBar.getRating()));
         }
         if (v.getId() == R.id.saveRatingsButton){
-            String symptomHashMap = symptomsMap.toString();
-            Log.d("HashMap to string", symptomHashMap);
+            String symptomHashMap = symptoms.toString();
+
             Intent intent = new Intent(this, HeartRateCalculator.class);
             intent.putExtra("EXTRA_TEXT", symptomHashMap);
+
             startActivity(intent);
         }
     }
