@@ -6,22 +6,6 @@
     android:layout_height="match_parent"
     tools:context=".HeartRateCalculator">
 
-    <!-- Include other widget or layout tags here. These are considered
-            "child views" or "children" of the linear layout -->
-
-
-    <TextureView
-        android:id="@+id/textureView2"
-        android:layout_width="280dp"
-        android:layout_height="165dp"
-        android:layout_gravity="center"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.081"
-        tools:ignore="MissingConstraints" />
-
     <TextView
         android:id="@+id/heartRateInstruction"
         android:layout_width="wrap_content"
@@ -78,22 +62,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.592"
-        tools:ignore="MissingConstraints" />
-
-    <Button
-        android:id="@+id/upload_signs_button"
-        android:layout_width="310dp"
-        android:layout_height="50dp"
-        android:layout_gravity="center_vertical|center_horizontal"
-        android:width="300dp"
-        android:text="UPLOAD SIGNS"
-        android:textAlignment="center"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.531"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.836"
         tools:ignore="MissingConstraints" />
 
     <Button

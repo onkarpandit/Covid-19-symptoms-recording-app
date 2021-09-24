@@ -18,7 +18,7 @@ public class Database extends SQLiteOpenHelper {
     public static final String TABLE_NAME = "SymptomsTable";
 
     // Column names
-    public static final String COL_0 = "LAST NAME";
+    public static final String COL_0 = "LAST_NAME";
     public static final String COL_1 = "HEART_RATE";
     public static final String COL_2 = "RESPIRATORY_RATE";
     public static final String COL_3 = "NAUSEA";
@@ -40,8 +40,9 @@ public class Database extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL("create table "+TABLE_NAME+"( ID INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "LAST_NAME TEXT,"+
                 "HEART_RATE TEXT," +
-                " RESPIRATORY_RATE TEXT, " +
+                "RESPIRATORY_RATE TEXT," +
                 "NAUSEA TEXT," +
                 "HEADACHE TEXT," +
                 "DIARRHOEA TEXT," +

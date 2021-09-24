@@ -11,6 +11,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.RatingBar;
 import android.widget.Spinner;
+import android.widget.Toast;
 
 import java.util.HashMap;
 
@@ -18,12 +19,18 @@ public class RecordSymptoms extends AppCompatActivity implements AdapterView.OnI
     RatingBar ratingBar;
     String currentItem = "Nausea";
     HashMap<String, String> symptoms = new HashMap<>();
+    Database database;
+    String vitalSigns;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_record_symptoms);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        database = new Database(this);
+
+        Intent intent = getIntent();
+        vitalSigns = (String) intent.getStringExtra("HEART_RESPIRATORY_RATE");
 
         Spinner symptomSelector = (Spinner)findViewById(R.id.symptom_selector);
         ArrayAdapter<String> symptomAdaptor = new ArrayAdapter<String>(RecordSymptoms.this,
@@ -48,7 +55,7 @@ public class RecordSymptoms extends AppCompatActivity implements AdapterView.OnI
 
         Button setRatingButton = findViewById(R.id.setRatingButton);
         setRatingButton.setOnClickListener(this);
-        Button saveRatingsButton = findViewById(R.id.saveRatingsButton);
+        Button saveRatingsButton = findViewById(R.id.uploadToDb);
         saveRatingsButton.setOnClickListener(this);
     }
 
@@ -69,13 +76,18 @@ public class RecordSymptoms extends AppCompatActivity implements AdapterView.OnI
         if (v.getId() == R.id.setRatingButton){
             symptoms.put(currentItem, Float.toString(ratingBar.getRating()));
         }
-        if (v.getId() == R.id.saveRatingsButton){
-            String symptomHashMap = symptoms.toString();
+        if (v.getId() == R.id.uploadToDb){
+            uploadSignsToDB();
+        }
+    }
 
-            Intent intent = new Intent(this, HeartRateCalculator.class);
-            intent.putExtra("EXTRA_TEXT", symptomHashMap);
-
-            startActivity(intent);
+    private void uploadSignsToDB() {
+        String [] vitals = vitalSigns.split(",");
+        symptoms.put("Heart Rate", vitals[0]);
+        symptoms.put("Respiratory Rate", vitals[1]);
+        boolean flag = database.insertData(symptoms);
+        if (flag) {
+            Toast.makeText(getApplicationContext(), "Successfully inserted data", Toast.LENGTH_LONG).show();
         }
     }
 }

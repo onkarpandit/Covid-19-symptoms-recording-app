@@ -33,14 +33,14 @@
             android:layout_gravity="center_vertical|center_horizontal"
             android:text="Save" />
         <Button
-            android:id="@+id/saveRatingsButton"
+            android:id="@+id/uploadToDb"
             android:layout_width="@android:dimen/thumbnail_width"
             android:textColor="#fff"
             android:progressTint="@color/design_default_color_primary"
             android:layout_height="wrap_content"
             android:layout_marginTop="@android:dimen/thumbnail_height"
             android:layout_gravity="center"
-            android:text="Home" />
+            android:text="Upload Signs" />
     </LinearLayout>
 
 

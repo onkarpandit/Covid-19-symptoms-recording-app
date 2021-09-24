@@ -5,11 +5,14 @@ import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.AssetFileDescriptor;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.hardware.Sensor;
@@ -19,9 +22,15 @@ import android.hardware.SensorManager;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.media.MediaMetadataRetriever;
+import android.media.MediaPlayer;
+import android.media.ThumbnailUtils;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.Surface;
@@ -33,20 +42,25 @@ import android.widget.Toast;
 
 import com.google.android.material.snackbar.Snackbar;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 
 public class HeartRateCalculator extends AppCompatActivity implements SensorEventListener  {
-    private static final String TAG = "MainActivity";
-    private static final int REQUEST_ID = 1;
-    private String heartRate = "0";
+    private static final int VIDEO_CAPTURE = 101;
+    String filePath;
+    private int heartRate = 0;
     private String respiratoryRate = "0";
-    private HashMap<String, String> symptoms;
     Database database;
-
-    private final VideoService cameraService = new VideoService(this);
     private EntryStorage store;
 
     private final int measurementInterval = 45;
@@ -55,6 +69,7 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
 
     private int valeyDetections = 0;
     private int ticksPassed = 0;
+    private Uri fileUri;
 
     private CopyOnWriteArrayList<Long> valleys;
 
@@ -76,35 +91,15 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_heart_rate_calculator);
+        configurePermissions();
 
         Button measureHeartRateButton = (Button) findViewById(R.id.heartRateButton);
         Button measureRespiratoryButton = (Button) findViewById(R.id.respRateButton);
-        Button upload_signs_button = (Button) findViewById(R.id.upload_signs_button);
         Button recordSymptoms = (Button) findViewById(R.id.record_symptoms);
 
         logger = (TextView) findViewById(R.id.heartRateInstruction);
 
         database = new Database(this);
-
-        initialiseHashMap();
-
-        Intent intent = getIntent();
-        String symptomsString = (String) intent.getStringExtra("EXTRA_TEXT");
-        if(symptomsString != null){
-            symptomsString = symptomsString.substring(1);
-            symptomsString = symptomsString.substring(0, symptomsString.length() - 1);
-
-            String[] pairs = symptomsString.split(",");
-            for (int i=0;i<pairs.length;i++) {
-                String pair = pairs[i].trim();
-                String[] keyValue = pair.split("=");
-                symptoms.put(keyValue[0].trim(), keyValue[1].trim());
-            }
-        }
-
-        ActivityCompat.requestPermissions(this,
-                new String[]{Manifest.permission.CAMERA},
-                REQUEST_ID);
 
         if(!isCameraPermitted()){
             measureHeartRateButton.setEnabled(false);
@@ -114,34 +109,13 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
             @Override
             public void onClick(View view) {
                 measureHeartRate();
-
             }
         });
 
         measureRespiratoryButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                ((TextView) findViewById(R.id.respInstruction)).setText("Calculating...");
-                accelManage = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-                senseAccel = accelManage.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-                accelManage.registerListener(HeartRateCalculator.this, senseAccel, SensorManager.SENSOR_DELAY_NORMAL);
-            }
-        });
-
-
-        upload_signs_button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                symptoms.put("Heart Rate", heartRate);
-                symptoms.put("Respiratory Rate", respiratoryRate);
-                boolean flag = database.insertData(symptoms);
-                if (flag) {
-                    Toast.makeText(getApplicationContext(), "Successfully inserted data", Toast.LENGTH_LONG).show();
-                }
-
-                Intent intent = new Intent(HeartRateCalculator.this, HeartRateCalculator.class);
-                startActivity(intent);
-
+                measureRespiratoryRate();
             }
         });
 
@@ -154,8 +128,35 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
 
     }
 
+    private boolean isCameraPermitted() {
+        if (getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_CAMERA_ANY)){
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    void configurePermissions() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}
+                        , 10);
+            }
+            return;
+        }
+    }
+
+    private void measureRespiratoryRate() {
+        ((TextView) findViewById(R.id.respInstruction)).setText("Calculating...");
+        accelManage = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        senseAccel = accelManage.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        accelManage.registerListener(HeartRateCalculator.this, senseAccel, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+
     public void openRecordSymptoms() {
         Intent intent = new Intent(this, RecordSymptoms.class);
+        intent.putExtra("HEART_RESPIRATORY_RATE", String.valueOf(heartRate)+","+respiratoryRate);
         startActivity(intent);
     }
 
@@ -227,7 +228,7 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
 
                 float heartbeat = (60f * (valeyDetections - 1) / (Math.max(1, (valleys.get(valleys.size() - 1) - valleys.get(0)) / 1000f)));
                 int heart_beat = Math.round(heartbeat);
-                heartRate = String.valueOf(heart_beat);
+                heartRate = heart_beat;
 
                 String currentValue = String.format( Locale.getDefault(),"HEART_BEAT: " + heartRate);
                 ((TextView) findViewById(R.id.heartRateInstruction)).setText(currentValue);
@@ -237,32 +238,6 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
         };
 
         timer.start();
-    }
-
-    private void measureHeartRate() {
-        logger.setText("Calculating...");
-
-        valleys = new CopyOnWriteArrayList<>();
-
-        TextureView cameraTextureView = findViewById(R.id.textureView2);
-
-        SurfaceTexture previewSurfaceTexture = cameraTextureView.getSurfaceTexture();
-        if (previewSurfaceTexture != null) {
-            // this first appears when we close the application and switch back - TextureView isn't quite ready at the first onResume.
-            Surface previewSurface = new Surface(previewSurfaceTexture);
-
-            cameraService.start(previewSurface);
-            measurePulse(cameraTextureView, cameraService);
-        }
-    }
-
-    private boolean isCameraPermitted() {
-        if (getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_CAMERA_ANY)){
-            return true;
-        } else {
-            return false;
-        }
     }
 
     public int getHeartRate() {
@@ -287,6 +262,160 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
         int max = Math.max(xCount, Math.max(yCount, zCount));
 
         return max*30/total_time;
+    }
+
+    private File createFile() throws IOException {
+        // Create an image file name
+        String imageFileName = "myvideo";
+        File storageDir = new File(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DCIM), "Camera");
+        File image = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".mp4",         /* suffix */
+                storageDir      /* directory */
+        );
+
+
+        return image;
+    }
+
+    private void measureHeartRate() {
+
+        Log.v("myTag","FAB recording");
+        File mediaFile = null;
+        try {
+            mediaFile = createFile();
+        } catch (IOException ex) {
+            Log.v("myTag","Exception");
+            return;
+        }
+
+
+        Intent intent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+        intent.putExtra(MediaStore.EXTRA_DURATION_LIMIT,5);
+
+        fileUri = FileProvider.getUriForFile(HeartRateCalculator.this,
+                BuildConfig.APPLICATION_ID + ".provider",
+                mediaFile);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+//        intent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
+        startActivityForResult(intent, VIDEO_CAPTURE);
+
+    }
+
+    public String getPath(Uri uri) {
+        String[] projection = {MediaStore.MediaColumns.DATA};
+        Cursor cursor = managedQuery(uri, projection, null, null, null);
+        int column_index = cursor
+                .getColumnIndexOrThrow(MediaStore.MediaColumns.DATA);
+        cursor.moveToFirst();
+
+        return cursor.getString(column_index);
+    }
+
+
+    protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
+        super.onActivityResult(requestCode, resultCode, intent);
+
+        if (resultCode != RESULT_OK) return;
+
+        Uri selectedImage = intent.getData();
+
+        filePath = getPath(selectedImage);
+        Log.d("Filepath", filePath);
+        Toast.makeText(this,"Video Location is "+ filePath,Toast.LENGTH_SHORT).show();
+
+        new HeartRateAsync().execute();
+    }
+
+    private class HeartRateAsync extends AsyncTask<Void, Void, Void> {
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+        }
+
+        @Override
+        protected Void doInBackground(Void... params) {
+
+            File videoFile=new File(fileUri.toString());
+
+            Uri videoFileUri=Uri.parse(filePath);
+
+            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+            retriever.setDataSource(filePath);
+
+            MediaPlayer mp = MediaPlayer.create(getBaseContext(), videoFileUri);
+            int time = mp.getDuration();
+
+            int crpWidth = 100;
+            int crpHeight = 100;
+
+            ArrayList<Float> meanRedIntensity = new ArrayList<Float>();
+            ArrayList<Float> diffList = new ArrayList<Float>();
+            NumberFormat formatter = NumberFormat.getNumberInstance();
+            formatter.setMinimumFractionDigits(2);
+            formatter.setMaximumFractionDigits(2);
+
+            for(int i=0; i<time ; i=i+100){
+
+                //get a frame at every 100 milliseconds. Therefore 450 data-points for a 45 sec video.
+                //croppedBitmap is a centered bitmap of crpWidth and crpHeight
+                int sum = 0;
+                Bitmap croppedBitmap = ThumbnailUtils.extractThumbnail(retriever.getFrameAtTime(i*1000,MediaMetadataRetriever.OPTION_CLOSEST), crpWidth, crpHeight);
+
+                //stored pixels values in px[]
+                int[] px = new int[crpWidth * crpHeight];
+                croppedBitmap.getPixels(px,0, crpWidth,0,0,crpWidth,crpHeight);
+
+                //get red value for a px. Calculate sum of all red values.
+                for (int j = 0 ; j < crpWidth*crpHeight; j++) {
+                    int redIntensity = (px[j] & 0xff0000) >> 16;
+                    sum = sum + redIntensity;
+                }
+                //store average red color of each frame in meanRedIntensity
+                meanRedIntensity.add((float)sum/(crpWidth*crpHeight));
+
+                //progress calculation for heartRate TextView
+                float perc = (i/(float)time)*100;
+                String p = formatter.format(perc);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        logger.setText(p+"% processed");
+                    }
+                });
+            }
+
+            //create a diffList to store changes in redInstensity values in recorded frames.
+            for(int i=0; i<meanRedIntensity.size()-1; i++) {
+                diffList.add(Math.abs(meanRedIntensity.get(i)-meanRedIntensity.get(i+1)));
+            }
+
+            float noise = 0.1f;
+            int peak = 0;
+
+            //peak calulation
+            for(int i=1; i<diffList.size(); i++) {
+                if(diffList.get(i-1)>noise && diffList.get(i)<noise) {
+                    peak = peak + 1;
+                }
+            }
+
+            //heartRate upscaled to a min
+            heartRate = (60*peak/(time/1000));
+
+            retriever.release();
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void result) {
+            super.onPostExecute(result);
+
+            logger.setText(heartRate + " bpm");
+        }
     }
 
     @Override
@@ -322,21 +451,5 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
     @Override
     public void onAccuracyChanged(Sensor sensor, int i) {
 
-    }
-
-    private void initialiseHashMap(){
-        symptoms = new HashMap<>();
-        symptoms.put("Heart Rate","0");
-        symptoms.put("Respiratory Rate","0");
-        symptoms.put("Nausea", "0");
-        symptoms.put("Headache", "0");
-        symptoms.put("Diarrhoea", "0");
-        symptoms.put("Soar Throat", "0");
-        symptoms.put("Fever", "0");
-        symptoms.put("Muscle Ache", "0");
-        symptoms.put("Loss of smell or taste", "0");
-        symptoms.put("Cough", "0");
-        symptoms.put("Shortness of breath", "0");
-        symptoms.put("Feeling Tired", "0");
     }
 }
