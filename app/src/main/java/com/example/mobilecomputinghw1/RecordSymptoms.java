@@ -4,6 +4,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
@@ -13,13 +14,16 @@ import android.widget.RatingBar;
 import android.widget.Spinner;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.nio.channels.FileChannel;
 import java.util.HashMap;
 
 public class RecordSymptoms extends AppCompatActivity implements AdapterView.OnItemSelectedListener, View.OnClickListener {
     RatingBar ratingBar;
     String currentItem = "Nausea";
     HashMap<String, String> symptoms = new HashMap<>();
-    Database database;
     String vitalSigns;
 
     @Override
@@ -27,7 +31,6 @@ public class RecordSymptoms extends AppCompatActivity implements AdapterView.OnI
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_record_symptoms);
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-        database = new Database(this);
 
         Intent intent = getIntent();
         vitalSigns = (String) intent.getStringExtra("HEART_RESPIRATORY_RATE");
@@ -41,6 +44,16 @@ public class RecordSymptoms extends AppCompatActivity implements AdapterView.OnI
 
 
         ratingBar = findViewById(R.id.ratingBar);
+        initialiseHashMap();
+
+
+        Button setRatingButton = findViewById(R.id.setRatingButton);
+        setRatingButton.setOnClickListener(this);
+        Button saveRatingsButton = findViewById(R.id.uploadToDb);
+        saveRatingsButton.setOnClickListener(this);
+    }
+
+    private void initialiseHashMap() {
         symptoms.put("Cough", "0");
         symptoms.put("Diarrhoea", "0");
         symptoms.put("Fever", "0");
@@ -51,12 +64,6 @@ public class RecordSymptoms extends AppCompatActivity implements AdapterView.OnI
         symptoms.put("Nausea", "0");
         symptoms.put("Shortness of breath","0");
         symptoms.put("Soar Throat", "0");
-
-
-        Button setRatingButton = findViewById(R.id.setRatingButton);
-        setRatingButton.setOnClickListener(this);
-        Button saveRatingsButton = findViewById(R.id.uploadToDb);
-        saveRatingsButton.setOnClickListener(this);
     }
 
     @Override
@@ -81,13 +88,10 @@ public class RecordSymptoms extends AppCompatActivity implements AdapterView.OnI
         }
     }
 
+
     private void uploadSignsToDB() {
-        String [] vitals = vitalSigns.split(",");
-        symptoms.put("Heart Rate", vitals[0]);
-        symptoms.put("Respiratory Rate", vitals[1]);
-        boolean flag = database.insertData(symptoms);
-        if (flag) {
-            Toast.makeText(getApplicationContext(), "Successfully inserted data", Toast.LENGTH_LONG).show();
-        }
+        Intent intent = new Intent(RecordSymptoms.this, HeartRateCalculator.class);
+        intent.putExtra("SYMPTOMS", symptoms.toString());
+        startActivity(intent);
     }
 }

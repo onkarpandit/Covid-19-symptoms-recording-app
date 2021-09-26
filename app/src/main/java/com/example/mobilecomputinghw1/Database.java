@@ -61,16 +61,33 @@ public class Database extends SQLiteOpenHelper {
         onCreate(db);
     }
 
-    public Boolean insertData(HashMap<String, String> data){
-        for (Map.Entry<String, String> iter: data.entrySet()) {
-            Log.d("Key Value pair", iter.getKey() +" "+iter.getValue());
-        }
-
+    public Boolean insertHeartRate(String heartRate, String respiratoryRate) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues contentValues = new ContentValues();
         contentValues.put(COL_0, "PANDIT");
-        contentValues.put(COL_1, data.get("Heart Rate"));
-        contentValues.put(COL_2, data.get("Respiratory Rate"));
+        contentValues.put(COL_1, heartRate);
+        contentValues.put(COL_2, respiratoryRate);
+        contentValues.put(COL_3, "0");
+        contentValues.put(COL_4, "0");
+        contentValues.put(COL_5, "0");
+        contentValues.put(COL_6, "0");
+        contentValues.put(COL_7, "0");
+        contentValues.put(COL_8, "0");
+        contentValues.put(COL_9, "0");
+        contentValues.put(COL_10, "0");
+        contentValues.put(COL_11, "0");
+        contentValues.put(COL_12, "0");
+
+        long result = db.insert(TABLE_NAME, null, contentValues);
+        if (result == -1){
+            return false;
+        }
+        return true;
+    }
+
+    public Boolean updateDbWithSymptoms(HashMap<String, String> data) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues contentValues = new ContentValues();
         contentValues.put(COL_3, data.get("Nausea"));
         contentValues.put(COL_4, data.get("Headache"));
         contentValues.put(COL_5, data.get("Diarrhoea"));
@@ -81,7 +98,8 @@ public class Database extends SQLiteOpenHelper {
         contentValues.put(COL_10, data.get("Cough"));
         contentValues.put(COL_11, data.get("Shortness of breath"));
         contentValues.put(COL_12, data.get("Feeling Tired"));
-        long result = db.insert(TABLE_NAME, null, contentValues);
+        long result = db.update(TABLE_NAME, contentValues, "LAST_NAME"+" = ?", new String[] {"PANDIT"});
+
         if (result == -1){
             return false;
         }
