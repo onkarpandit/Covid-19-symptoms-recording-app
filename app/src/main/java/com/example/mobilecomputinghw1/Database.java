@@ -4,10 +4,12 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.os.Environment;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -16,6 +18,8 @@ public class Database extends SQLiteOpenHelper {
 
     public static final String DATABASE_NAME = "SYMPTOMSDB.db";
     public static final String TABLE_NAME = "SymptomsTable";
+    public static long LAST_ID = 1;
+    public static String FOLDER_PATH = Environment.getExternalStorageDirectory().getAbsolutePath()+"/MC/";
 
     // Column names
     public static final String COL_0 = "LAST_NAME";
@@ -33,8 +37,7 @@ public class Database extends SQLiteOpenHelper {
     public static final String COL_12 = "FEELING_TIRED";
 
     public Database(@Nullable Context context) {
-        super(context, DATABASE_NAME, null, 1);
-
+        super(context, FOLDER_PATH + DATABASE_NAME, null, 1);
     }
 
     @Override
@@ -82,10 +85,12 @@ public class Database extends SQLiteOpenHelper {
         if (result == -1){
             return false;
         }
+        LAST_ID = result;
         return true;
     }
 
     public Boolean updateDbWithSymptoms(HashMap<String, String> data) {
+
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues contentValues = new ContentValues();
         contentValues.put(COL_3, data.get("Nausea"));
@@ -98,7 +103,7 @@ public class Database extends SQLiteOpenHelper {
         contentValues.put(COL_10, data.get("Cough"));
         contentValues.put(COL_11, data.get("Shortness of breath"));
         contentValues.put(COL_12, data.get("Feeling Tired"));
-        long result = db.update(TABLE_NAME, contentValues, "LAST_NAME"+" = ?", new String[] {"PANDIT"});
+        long result = db.update(TABLE_NAME, contentValues, "ID"+" = ?", new String[] {String.valueOf(LAST_ID)});
 
         if (result == -1){
             return false;

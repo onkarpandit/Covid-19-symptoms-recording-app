@@ -46,10 +46,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public class HeartRateCalculator extends AppCompatActivity implements SensorEventListener  {
     private static final int VIDEO_CAPTURE = 101;
+    private static final int RATE = 26;
     String filePath;
     private double heartRate = 0;
     private String respiratoryRate = "0";
-    private EntryStorage store;
     private HashMap<String, String> symptoms = new HashMap<String, String>();
 
 
@@ -70,7 +70,6 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
             Manifest.permission.WRITE_EXTERNAL_STORAGE
     };
 
-    @RequiresApi(api = Build.VERSION_CODES.R)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -148,8 +147,13 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
                 String[] keyValue = pair.split("=");
                 symptoms.put(keyValue[0].trim(), keyValue[1].trim());
             }
-            database.updateDbWithSymptoms(symptoms);
-            exportDB();
+            symptoms.put("Heart Rate", String.valueOf(heartRate));
+            symptoms.put("Resp Rate", respiratoryRate);
+            if (database.updateDbWithSymptoms(symptoms)) {
+                exportDB();
+                Toast.makeText(this, "DB updated", Toast.LENGTH_LONG).show();
+            }
+
         }
     }
 
@@ -162,21 +166,14 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.R)
     void configurePermissions() {
-        if (!Environment.isExternalStorageManager()) {
-            Intent allFilesIntent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-            startActivity(allFilesIntent);
-        }
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED || ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}
                         , 10);
             }
             return;
         }
-
     }
 
     private void measureRespiratoryRate() {
@@ -219,7 +216,9 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
         int max = Math.max(xCount, Math.max(yCount, zCount));
 
         return max*30/total_time;
+
     }
+
 
     private void measureHeartRate() {
         Intent intent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
@@ -254,11 +253,18 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
         new HeartRateAsync().execute();
     }
 
+    //Calculating the heart rate in a separate thread so as to not block the UI
     private class HeartRateAsync extends AsyncTask<Void, Void, Void> {
-
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
+        }
+
+        @Override
+        protected void onPostExecute(Void result) {
+            super.onPostExecute(result);
+
+            logger.setText(heartRate + " bpm");
         }
 
         @Override
@@ -271,8 +277,8 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
             MediaPlayer mp = MediaPlayer.create(getBaseContext(), videoFileUri);
             int time = mp.getDuration();
 
-            int crpWidth = 100;
-            int crpHeight = 100;
+            int crpWidth = 50;
+            int crpHeight = 50;
 
             ArrayList<Float> meanRedIntensity = new ArrayList<Float>();
             ArrayList<Float> diffList = new ArrayList<Float>();
@@ -313,26 +319,15 @@ public class HeartRateCalculator extends AppCompatActivity implements SensorEven
 
             //peak calulation
             for(int i=1; i<diffList.size(); i++) {
-                if(diffList.get(i-1)>noise && diffList.get(i)<noise) {
-                    peak = peak + 1;
+                if(diffList.get(i)<=noise) {
+                    ++peak;
                 }
             }
+            time/=1000;
+            heartRate = (60*peak)/time + 20;
 
-            //heartRate upscaled to a min
-            heartRate = (60*peak/(time/3600)) / 2;
-
-            if (heartRate < 60.0 || heartRate > 100.0) {
-                heartRate = (double) new Random().nextInt(12) + 68;
-            }
             retriever.release();
             return null;
-        }
-
-        @Override
-        protected void onPostExecute(Void result) {
-            super.onPostExecute(result);
-
-            logger.setText(heartRate + " bpm");
         }
     }
 
